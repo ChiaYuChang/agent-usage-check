@@ -79,11 +79,19 @@ type ashellOutput struct {
 	Alt  string `json:"alt"`
 }
 
+type jsonOutput struct {
+	Name  string         `json:"name"`
+	Icon  string         `json:"icon"`
+	Usage map[string]any `json:"usage"`
+	Alt   string         `json:"alt"`
+}
+
 type displayOptions struct {
 	mode          string
 	remainingChar string
 	usedChar      string
 	icon          string
+	json          bool
 }
 
 type yamlConfig struct {
@@ -98,6 +106,7 @@ type yamlConfig struct {
 	CachePathAlt     string `yaml:"cache-path"`
 	AuthPath         string `yaml:"auth_path"`
 	AuthPathAlt      string `yaml:"auth-path"`
+	JSON             bool   `yaml:"json"`
 }
 
 type appConfig struct {
@@ -108,6 +117,7 @@ type appConfig struct {
 	Icon          string
 	CachePath     string
 	AuthPath      string
+	JSON          bool
 }
 
 func expandPath(path string) string {
@@ -328,6 +338,43 @@ func report(current status, now time.Time, options displayOptions) string {
 }
 
 func printStatus(current status, err error, options displayOptions) {
+	if options.json {
+		out := jsonOutput{
+			Name: "openai",
+			Icon: options.icon,
+			Usage: map[string]any{
+				"5h": notApplicable,
+				"1w": notApplicable,
+			},
+			Alt: "error",
+		}
+		if err == nil {
+			primary, primaryOK := percentage(current.Primary)
+			secondary, secondaryOK := percentage(current.Secondary)
+			if primaryOK {
+				if options.mode == "used" {
+					out.Usage["5h"] = 100 - primary
+				} else {
+					out.Usage["5h"] = primary
+				}
+			}
+			if secondaryOK {
+				if options.mode == "used" {
+					out.Usage["1w"] = 100 - secondary
+				} else {
+					out.Usage["1w"] = secondary
+				}
+			}
+			if (primaryOK && primary == 0) || (secondaryOK && secondary == 0) {
+				out.Alt = "exhausted"
+			} else {
+				out.Alt = "available"
+			}
+		}
+		_ = json.NewEncoder(os.Stdout).Encode(out)
+		return
+	}
+
 	summary := fmt.Sprintf("5h: %s  1w: %s", notApplicable, notApplicable)
 	if options.icon != "" {
 		summary = options.icon + "  " + summary
@@ -377,6 +424,7 @@ func main() {
 	iconFlag := flag.String("icon", "", "icon displayed before the bar summary")
 	cachePathFlag := flag.String("cache-path", "", "path to cache file")
 	authPathFlag := flag.String("auth-path", "", "path to auth file")
+	jsonFlag := flag.Bool("json", false, "output status in structured JSON format")
 	flag.Parse()
 
 	visitedFlags := make(map[string]bool)
@@ -393,6 +441,7 @@ func main() {
 		Icon:          "󰫣",
 		CachePath:     defaultCacheFile,
 		AuthPath:      defaultAuthFile,
+		JSON:          false,
 	}
 
 	// Determine config file path
@@ -438,6 +487,9 @@ func main() {
 			} else if yc.AuthPathAlt != "" {
 				cfg.AuthPath = yc.AuthPathAlt
 			}
+			if yc.JSON {
+				cfg.JSON = yc.JSON
+			}
 		}
 	} else if visitedFlags["config"] {
 		fmt.Fprintf(os.Stderr, "Unable to read config file at %s: %v\n", configFileToRead, err)
@@ -466,6 +518,9 @@ func main() {
 	if visitedFlags["auth-path"] {
 		cfg.AuthPath = *authPathFlag
 	}
+	if visitedFlags["json"] {
+		cfg.JSON = *jsonFlag
+	}
 
 	// Validate options
 	if cfg.Display != "remaining" && cfg.Display != "used" {
@@ -486,6 +541,7 @@ func main() {
 		remainingChar: cfg.RemainingChar,
 		usedChar:      cfg.UsedChar,
 		icon:          cfg.Icon,
+		json:          cfg.JSON,
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

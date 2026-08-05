@@ -54,6 +54,7 @@ interval: 15m
 remaining_char: "■"
 used_char: "□"
 icon: "󰫣"
+json: false # set true to output structured JSON
 cache_path: "~/.config/agent-usage-check/cache.json"
 auth_path: "~/.codex/auth.json"
 ```
@@ -61,8 +62,12 @@ auth_path: "~/.codex/auth.json"
 ## CLI Usage
 
 ```bash
-# Print status bar JSON once
+# Print default status bar JSON once
 agent-usage-check --once
+
+# Print structured agent JSON output
+agent-usage-check --once --json
+# Output: {"name":"openai","icon":"󰫣","usage":{"5h":3,"1w":"N/A"},"alt":"available"}
 
 # Print detailed usage report (fetches fresh data and updates cache)
 agent-usage-check --details

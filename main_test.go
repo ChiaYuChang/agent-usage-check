@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -95,5 +98,50 @@ func TestExpandPath(t *testing.T) {
 	want := filepath.Join(home, ".config/agent-usage-check")
 	if got != want {
 		t.Errorf("expandPath() = %q, want %q", got, want)
+	}
+}
+
+func TestPrintStatusJSON(t *testing.T) {
+	st := status{
+		Primary: &window{RemainingPercent: intPointer(97)},
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	printStatus(st, nil, displayOptions{
+		mode: "used",
+		icon: "󰫣",
+		json: true,
+	})
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+
+	var out jsonOutput
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("failed to unmarshal JSON status: %v", err)
+	}
+
+	if out.Name != "openai" {
+		t.Errorf("out.Name = %q, want openai", out.Name)
+	}
+	if out.Icon != "󰫣" {
+		t.Errorf("out.Icon = %q, want 󰫣", out.Icon)
+	}
+	if out.Alt != "available" {
+		t.Errorf("out.Alt = %q, want available", out.Alt)
+	}
+	// mode is used, remaining is 97%, so used is 3
+	val, ok := out.Usage["5h"]
+	if !ok || int(val.(float64)) != 3 {
+		t.Errorf("out.Usage[\"5h\"] = %v, want 3", val)
+	}
+	if out.Usage["1w"] != "N/A" {
+		t.Errorf("out.Usage[\"1w\"] = %v, want N/A", out.Usage["1w"])
 	}
 }
