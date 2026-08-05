@@ -107,6 +107,7 @@ type yamlConfig struct {
 	AuthPath         string `yaml:"auth_path"`
 	AuthPathAlt      string `yaml:"auth-path"`
 	JSON             bool   `yaml:"json"`
+	Watch            bool   `yaml:"watch"`
 }
 
 type appConfig struct {
@@ -118,6 +119,7 @@ type appConfig struct {
 	CachePath     string
 	AuthPath      string
 	JSON          bool
+	Watch         bool
 }
 
 func expandPath(path string) string {
@@ -425,6 +427,7 @@ func main() {
 	cachePathFlag := flag.String("cache-path", "", "path to cache file")
 	authPathFlag := flag.String("auth-path", "", "path to auth file")
 	jsonFlag := flag.Bool("json", false, "output status in structured JSON format")
+	watchFlag := flag.Bool("watch", false, "continuously watch and refresh status at configured interval")
 	flag.Parse()
 
 	visitedFlags := make(map[string]bool)
@@ -442,6 +445,7 @@ func main() {
 		CachePath:     defaultCacheFile,
 		AuthPath:      defaultAuthFile,
 		JSON:          false,
+		Watch:         false,
 	}
 
 	// Determine config file path
@@ -490,6 +494,9 @@ func main() {
 			if yc.JSON {
 				cfg.JSON = yc.JSON
 			}
+			if yc.Watch {
+				cfg.Watch = yc.Watch
+			}
 		}
 	} else if visitedFlags["config"] {
 		fmt.Fprintf(os.Stderr, "Unable to read config file at %s: %v\n", configFileToRead, err)
@@ -520,6 +527,12 @@ func main() {
 	}
 	if visitedFlags["json"] {
 		cfg.JSON = *jsonFlag
+	}
+	if visitedFlags["watch"] {
+		cfg.Watch = *watchFlag
+	}
+	if visitedFlags["once"] && *once {
+		cfg.Watch = false
 	}
 
 	// Validate options
@@ -578,7 +591,7 @@ func main() {
 	}
 
 	update()
-	if *once {
+	if !cfg.Watch {
 		return
 	}
 
