@@ -1,0 +1,12 @@
+# Binary & Build outputs
+agent-usage-check
+result
+
+# Cache & Config
+cache.json
+config.yaml
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
