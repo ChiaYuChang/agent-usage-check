@@ -73,6 +73,14 @@ agent-usage-check --watch
 agent-usage-check --json
 # Output: {"name":"openai","icon":"󰫣","usage":{"5h":3,"1w":"N/A"},"alt":"available"}
 
+# Write Ashell-compatible status JSON to a file
+agent-usage-check --output ~/.cache/agent-usage-check/status.json
+# With --watch, the file is replaced after every refresh
+agent-usage-check --output ~/.cache/agent-usage-check/status.json --watch
+
+# Write the structured agent format to a file instead
+agent-usage-check --json --output ~/.cache/agent-usage-check/status.json
+
 # Print detailed usage report (fetches fresh data and updates cache)
 agent-usage-check --details
 

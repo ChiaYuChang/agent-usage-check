@@ -145,3 +145,49 @@ func TestPrintStatusJSON(t *testing.T) {
 		t.Errorf("out.Usage[\"1w\"] = %v, want N/A", out.Usage["1w"])
 	}
 }
+
+func TestWriteStatusJSON(t *testing.T) {
+	outputPath := filepath.Join(t.TempDir(), "nested", "status.json")
+	st := status{
+		Primary: &window{RemainingPercent: intPointer(74)},
+	}
+
+	if err := writeStatusJSON(outputPath, st, nil, displayOptions{
+		mode: "remaining",
+		icon: "codex",
+	}); err != nil {
+		t.Fatalf("writeStatusJSON failed: %v", err)
+	}
+
+	contents, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatalf("failed to read output JSON: %v", err)
+	}
+	var out ashellOutput
+	if err := json.Unmarshal(contents, &out); err != nil {
+		t.Fatalf("failed to unmarshal output JSON: %v", err)
+	}
+
+	if out.Text != "codex  5h: 74%  1w: N/A" || out.Alt != "available" {
+		t.Fatalf("unexpected output metadata: %+v", out)
+	}
+
+	if err := writeStatusJSON(outputPath, st, nil, displayOptions{
+		mode: "remaining",
+		icon: "codex",
+		json: true,
+	}); err != nil {
+		t.Fatalf("writeStatusJSON structured output failed: %v", err)
+	}
+	var structured jsonOutput
+	contents, err = os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatalf("failed to read structured output JSON: %v", err)
+	}
+	if err := json.Unmarshal(contents, &structured); err != nil {
+		t.Fatalf("failed to unmarshal structured output JSON: %v", err)
+	}
+	if structured.Usage["5h"] != float64(74) {
+		t.Fatalf("structured usage[\"5h\"] = %v, want 74", structured.Usage["5h"])
+	}
+}

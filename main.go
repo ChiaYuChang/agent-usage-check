@@ -18,14 +18,14 @@ import (
 )
 
 const (
-	creditsEndpoint    = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits"
-	usageEndpoint      = "https://chatgpt.com/backend-api/wham/usage"
-	defaultInterval    = 2 * time.Minute
-	defaultConfigDir   = "~/.config/agent-usage-check"
-	defaultConfigFile  = "~/.config/agent-usage-check/config.yaml"
-	defaultCacheFile   = "~/.config/agent-usage-check/cache.json"
-	defaultAuthFile    = "~/.codex/auth.json"
-	notApplicable      = "N/A"
+	creditsEndpoint   = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits"
+	usageEndpoint     = "https://chatgpt.com/backend-api/wham/usage"
+	defaultInterval   = 2 * time.Minute
+	defaultConfigDir  = "~/.config/agent-usage-check"
+	defaultConfigFile = "~/.config/agent-usage-check/config.yaml"
+	defaultCacheFile  = "~/.config/agent-usage-check/cache.json"
+	defaultAuthFile   = "~/.codex/auth.json"
+	notApplicable     = "N/A"
 )
 
 type authFile struct {
@@ -341,42 +341,14 @@ func report(current status, now time.Time, options displayOptions) string {
 
 func printStatus(current status, err error, options displayOptions) {
 	if options.json {
-		out := jsonOutput{
-			Name: "openai",
-			Icon: options.icon,
-			Usage: map[string]any{
-				"5h": notApplicable,
-				"1w": notApplicable,
-			},
-			Alt: "error",
-		}
-		if err == nil {
-			primary, primaryOK := percentage(current.Primary)
-			secondary, secondaryOK := percentage(current.Secondary)
-			if primaryOK {
-				if options.mode == "used" {
-					out.Usage["5h"] = 100 - primary
-				} else {
-					out.Usage["5h"] = primary
-				}
-			}
-			if secondaryOK {
-				if options.mode == "used" {
-					out.Usage["1w"] = 100 - secondary
-				} else {
-					out.Usage["1w"] = secondary
-				}
-			}
-			if (primaryOK && primary == 0) || (secondaryOK && secondary == 0) {
-				out.Alt = "exhausted"
-			} else {
-				out.Alt = "available"
-			}
-		}
+		out := statusJSON(current, err, options)
 		_ = json.NewEncoder(os.Stdout).Encode(out)
 		return
 	}
+	_ = json.NewEncoder(os.Stdout).Encode(ashellStatus(current, err, options))
+}
 
+func ashellStatus(current status, err error, options displayOptions) ashellOutput {
 	summary := fmt.Sprintf("5h: %s  1w: %s", notApplicable, notApplicable)
 	if options.icon != "" {
 		summary = options.icon + "  " + summary
@@ -412,7 +384,93 @@ func printStatus(current status, err error, options displayOptions) {
 			output.Alt = "available"
 		}
 	}
-	_ = json.NewEncoder(os.Stdout).Encode(output)
+	return output
+}
+
+func statusJSON(current status, err error, options displayOptions) jsonOutput {
+	out := jsonOutput{
+		Name: "openai",
+		Icon: options.icon,
+		Usage: map[string]any{
+			"5h": notApplicable,
+			"1w": notApplicable,
+		},
+		Alt: "error",
+	}
+	if err != nil {
+		return out
+	}
+
+	primary, primaryOK := percentage(current.Primary)
+	secondary, secondaryOK := percentage(current.Secondary)
+	if primaryOK {
+		if options.mode == "used" {
+			out.Usage["5h"] = 100 - primary
+		} else {
+			out.Usage["5h"] = primary
+		}
+	}
+	if secondaryOK {
+		if options.mode == "used" {
+			out.Usage["1w"] = 100 - secondary
+		} else {
+			out.Usage["1w"] = secondary
+		}
+	}
+	if (primaryOK && primary == 0) || (secondaryOK && secondary == 0) {
+		out.Alt = "exhausted"
+	} else {
+		out.Alt = "available"
+	}
+	return out
+}
+
+func writeStatusJSON(path string, current status, err error, options displayOptions) error {
+	var output any = ashellStatus(current, err, options)
+	if options.json {
+		output = statusJSON(current, err, options)
+	}
+	contents, err := json.Marshal(output)
+	if err != nil {
+		return err
+	}
+	contents = append(contents, '\n')
+
+	realPath := expandPath(path)
+	directory := filepath.Dir(realPath)
+	if err := os.MkdirAll(directory, 0755); err != nil {
+		return err
+	}
+
+	temporary, err := os.CreateTemp(directory, ".agent-usage-check-*.json")
+	if err != nil {
+		return err
+	}
+	temporaryPath := temporary.Name()
+	defer func() { _ = os.Remove(temporaryPath) }()
+
+	if err := temporary.Chmod(0644); err != nil {
+		_ = temporary.Close()
+		return err
+	}
+	if _, err := temporary.Write(contents); err != nil {
+		_ = temporary.Close()
+		return err
+	}
+	if err := temporary.Close(); err != nil {
+		return err
+	}
+	return os.Rename(temporaryPath, realPath)
+}
+
+func emitStatus(current status, err error, options displayOptions, outputPath string) {
+	if outputPath != "" {
+		if writeErr := writeStatusJSON(outputPath, current, err, options); writeErr != nil {
+			fmt.Fprintln(os.Stderr, "Unable to write status JSON:", writeErr)
+		}
+		return
+	}
+	printStatus(current, err, options)
 }
 
 func main() {
@@ -427,6 +485,7 @@ func main() {
 	cachePathFlag := flag.String("cache-path", "", "path to cache file")
 	authPathFlag := flag.String("auth-path", "", "path to auth file")
 	jsonFlag := flag.Bool("json", false, "output status in structured JSON format")
+	outputPathFlag := flag.String("output", "", "write status JSON to a file")
 	watchFlag := flag.Bool("watch", false, "continuously watch and refresh status at configured interval")
 	flag.Parse()
 
@@ -567,11 +626,21 @@ func main() {
 			// Fallback to cache if available
 			cachedSt, _, cacheErr := loadCache(cfg.CachePath)
 			if cacheErr == nil {
+				if *outputPathFlag != "" {
+					if writeErr := writeStatusJSON(*outputPathFlag, cachedSt, nil, options); writeErr != nil {
+						fmt.Fprintln(os.Stderr, "Unable to write status JSON:", writeErr)
+					}
+				}
 				fmt.Print(report(cachedSt, time.Now(), options))
 				return
 			}
 			fmt.Fprintln(os.Stderr, "Unable to load Codex usage:", err)
 			return
+		}
+		if *outputPathFlag != "" {
+			if writeErr := writeStatusJSON(*outputPathFlag, current, nil, options); writeErr != nil {
+				fmt.Fprintln(os.Stderr, "Unable to write status JSON:", writeErr)
+			}
 		}
 		fmt.Print(report(current, time.Now(), options))
 		return
@@ -583,11 +652,11 @@ func main() {
 			// If error, check if cache is available for fallback status display
 			cachedSt, _, cacheErr := loadCache(cfg.CachePath)
 			if cacheErr == nil {
-				printStatus(cachedSt, nil, options)
+				emitStatus(cachedSt, nil, options, *outputPathFlag)
 				return
 			}
 		}
-		printStatus(current, err, options)
+		emitStatus(current, err, options, *outputPathFlag)
 	}
 
 	update()
