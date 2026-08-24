@@ -1,5 +1,6 @@
 # Binary & Build outputs
 agent-usage-check
+bin/
 result
 
 # Cache & Config
