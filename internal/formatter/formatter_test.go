@@ -2,6 +2,8 @@ package formatter
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -78,12 +80,58 @@ func TestAshellStatus(t *testing.T) {
 		Primary:   &provider.Window{RemainingPercent: intPtr(97)},
 		Secondary: &provider.Window{RemainingPercent: intPtr(40)},
 	}
+	const icon = "󰫣"
 	out := AshellStatus(st, nil, DisplayOptions{
 		Mode: "remaining",
-		Icon: "󰫣",
+		Icon: icon,
 	})
-	if out.Text != "󰫣  5h: 97%  1w: 40%" || out.Alt != "available" {
-		t.Errorf("unexpected ashell output: %+v", out)
+	want := fmt.Sprintf(DefaultTextFormat, icon, " 97%", " 40%")
+	if out.Text != want || out.Alt != "available" {
+		t.Errorf("unexpected ashell output: %+v, want text %q", out, want)
+	}
+}
+
+func TestAshellStatusFixedWidth(t *testing.T) {
+	const icon = "󰫣"
+	full := AshellStatus(&provider.UsageStatus{
+		Primary:   &provider.Window{RemainingPercent: intPtr(100)},
+		Secondary: &provider.Window{RemainingPercent: intPtr(7)},
+	}, nil, DisplayOptions{Mode: "remaining", Icon: icon}).Text
+	na := AshellStatus(nil, errors.New("boom"), DisplayOptions{Mode: "remaining", Icon: icon}).Text
+
+	wantFull := fmt.Sprintf(DefaultTextFormat, icon, "100%", "  7%")
+	wantNA := fmt.Sprintf(DefaultTextFormat, icon, "N/A ", "N/A ")
+	if full != wantFull {
+		t.Errorf("unexpected full output: %q, want %q", full, wantFull)
+	}
+	if na != wantNA {
+		t.Errorf("unexpected N/A output: %q, want %q", na, wantNA)
+	}
+	if len([]rune(full)) != len([]rune(na)) {
+		t.Errorf("length mismatch: %q (%d) vs %q (%d)",
+			full, len([]rune(full)), na, len([]rune(na)))
+	}
+
+	noIcon := AshellStatus(&provider.UsageStatus{
+		Primary: &provider.Window{RemainingPercent: intPtr(93)},
+	}, nil, DisplayOptions{Mode: "remaining"}).Text
+	wantNoIcon := fmt.Sprintf(DefaultTextFormat, "", " 93%", "N/A ")
+	if noIcon != wantNoIcon {
+		t.Errorf("unexpected no-icon output: %q, want %q", noIcon, wantNoIcon)
+	}
+}
+
+func TestAshellStatusCustomFormat(t *testing.T) {
+	st := &provider.UsageStatus{
+		Primary:   &provider.Window{RemainingPercent: intPtr(93)},
+		Secondary: &provider.Window{RemainingPercent: intPtr(87)},
+	}
+	out := AshellStatus(st, nil, DisplayOptions{
+		Mode:       "remaining",
+		TextFormat: "%s|%s|%s",
+	})
+	if out.Text != "| 93%| 87%" {
+		t.Errorf("unexpected custom format output: %q", out.Text)
 	}
 }
 
@@ -131,7 +179,7 @@ func TestWriteStatusJSON(t *testing.T) {
 		t.Fatalf("failed to unmarshal output JSON: %v", err)
 	}
 
-	if out.Text != "codex  5h: 74%  1w: N/A" || out.Alt != "available" {
+	if out.Text != fmt.Sprintf(DefaultTextFormat, "codex", " 74%", "N/A ") || out.Alt != "available" {
 		t.Fatalf("unexpected output metadata: %+v", out)
 	}
 }

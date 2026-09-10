@@ -42,6 +42,9 @@ type YAMLConfig struct {
 	OpencodeEndpoint    string    `yaml:"opencode_endpoint"`
 	OpencodeEndpointAlt string    `yaml:"opencode-endpoint"`
 	JSON                bool      `yaml:"json"`
+	Text                bool      `yaml:"text"`
+	TextFormat          string    `yaml:"text_format"`
+	TextFormatAlt       string    `yaml:"text-format"`
 	Watch               bool      `yaml:"watch"`
 }
 
@@ -61,6 +64,8 @@ type Config struct {
 	OpencodeAuthPath string
 	OpencodeEndpoint string
 	JSON             bool
+	Text             bool
+	TextFormat       string
 	Watch            bool
 }
 
@@ -81,6 +86,8 @@ func DefaultConfig() Config {
 		OpencodeAuthPath: "",
 		OpencodeEndpoint: DefaultOpencodeEndpoint,
 		JSON:             false,
+		Text:             false,
+		TextFormat:       "",
 		Watch:            false,
 	}
 }
@@ -179,6 +186,14 @@ func LoadYAML(path string, cfg *Config) error {
 	}
 	if yc.JSON {
 		cfg.JSON = yc.JSON
+	}
+	if yc.Text {
+		cfg.Text = yc.Text
+	}
+	if yc.TextFormat != "" {
+		cfg.TextFormat = yc.TextFormat
+	} else if yc.TextFormatAlt != "" {
+		cfg.TextFormat = yc.TextFormatAlt
 	}
 	if yc.Watch {
 		cfg.Watch = yc.Watch

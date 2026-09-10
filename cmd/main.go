@@ -62,6 +62,8 @@ func main() {
 	opencodeAuthPathFlag := flag.String("opencode-auth-path", "", "path to opencode auth.json (opencode-go)")
 	opencodeEndpointFlag := flag.String("opencode-endpoint", "", "usage endpoint URL (opencode-go)")
 	jsonFlag := flag.Bool("json", false, "output status in structured JSON format")
+	textFlag := flag.Bool("text", false, "output plain status text instead of JSON")
+	textFormatFlag := flag.String("text-format", "", "Go format string for --text and status text: (icon, 5hr, 1w)")
 	outputPathFlag := flag.String("output", "", "write status JSON to a file")
 	watchFlag := flag.Bool("watch", false, "continuously watch and refresh status at configured interval")
 	versionFlag := flag.Bool("version", false, "print version and exit")
@@ -135,6 +137,12 @@ func main() {
 	if visitedFlags["json"] {
 		cfg.JSON = *jsonFlag
 	}
+	if visitedFlags["text"] {
+		cfg.Text = *textFlag
+	}
+	if visitedFlags["text-format"] {
+		cfg.TextFormat = *textFormatFlag
+	}
 	if visitedFlags["watch"] {
 		cfg.Watch = *watchFlag
 	}
@@ -167,6 +175,8 @@ func main() {
 		UsedChar:      cfg.UsedChar,
 		Icon:          cfg.GetIcon(prov.Name()),
 		JSON:          cfg.JSON,
+		Text:          cfg.Text,
+		TextFormat:    cfg.TextFormat,
 	}
 
 	if *details {

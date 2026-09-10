@@ -18,6 +18,21 @@ type DisplayOptions struct {
 	UsedChar      string
 	Icon          string
 	JSON          bool
+	Text          bool
+	TextFormat    string
+}
+
+// DefaultTextFormat renders the status bar text at a fixed width:
+// icon in 2 cells, each value in 4 cells (numbers via %3d%%, missing as "N/A ").
+// It takes (icon, 5hr-value, 1w-value), all pre-rendered strings.
+const DefaultTextFormat = "%2s  5hr: %s 1w: %s"
+
+// textValue renders a percentage as a fixed 4-char field.
+func textValue(ok bool, v int) string {
+	if !ok {
+		return "N/A "
+	}
+	return fmt.Sprintf("%3d%%", v)
 }
 
 type AshellOutput struct {
@@ -142,35 +157,35 @@ func Report(st *provider.UsageStatus, now time.Time, options DisplayOptions) str
 }
 
 func AshellStatus(st *provider.UsageStatus, err error, options DisplayOptions) AshellOutput {
-	summary := fmt.Sprintf("5h: %s  1w: %s", provider.NotApplicable, provider.NotApplicable)
-	if options.Icon != "" {
-		summary = options.Icon + "  " + summary
+	format := options.TextFormat
+	if format == "" {
+		format = DefaultTextFormat
 	}
-	output := AshellOutput{Text: summary, Alt: "error"}
+	output := AshellOutput{
+		Text: fmt.Sprintf(format, options.Icon, textValue(false, 0), textValue(false, 0)),
+		Alt:  "error",
+	}
 	if err == nil && st != nil {
 		primary, primaryOK := provider.Percentage(st.Primary)
 		secondary, secondaryOK := provider.Percentage(st.Secondary)
-		primaryText := provider.NotApplicable
-		secondaryText := provider.NotApplicable
+		primaryNum := 0
+		secondaryNum := 0
 		if primaryOK {
 			if options.Mode == "used" {
-				primaryText = fmt.Sprintf("%d%%", 100-primary)
+				primaryNum = 100 - primary
 			} else {
-				primaryText = fmt.Sprintf("%d%%", primary)
+				primaryNum = primary
 			}
 		}
 		if secondaryOK {
 			if options.Mode == "used" {
-				secondaryText = fmt.Sprintf("%d%%", 100-secondary)
+				secondaryNum = 100 - secondary
 			} else {
-				secondaryText = fmt.Sprintf("%d%%", secondary)
+				secondaryNum = secondary
 			}
 		}
-		summary = fmt.Sprintf("5h: %s  1w: %s", primaryText, secondaryText)
-		if options.Icon != "" {
-			summary = options.Icon + "  " + summary
-		}
-		output.Text = summary
+		output.Text = fmt.Sprintf(format, options.Icon,
+			textValue(primaryOK, primaryNum), textValue(secondaryOK, secondaryNum))
 		if (primaryOK && primary == 0) || (secondaryOK && secondary == 0) {
 			output.Alt = "exhausted"
 		} else {
@@ -334,6 +349,10 @@ func EmitStatus(st *provider.UsageStatus, err error, options DisplayOptions, out
 		if writeErr := WriteStatusJSON(outputPath, st, err, options); writeErr != nil {
 			fmt.Fprintln(os.Stderr, "Unable to write status JSON:", writeErr)
 		}
+		return
+	}
+	if options.Text {
+		fmt.Println(AshellStatus(st, err, options).Text)
 		return
 	}
 	if options.JSON {

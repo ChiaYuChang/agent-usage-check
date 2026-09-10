@@ -115,6 +115,14 @@ agent-usage-check --provider agy --output ~/.cache/agent-usage-check/status.json
 
 # Print version and exit
 agent-usage-check --version
+
+# Print plain fixed-width text instead of JSON (for status bars / scripts)
+agent-usage-check --provider opencode-go --text
+# Output: "    5hr:  93% 1w:  87%" (icon takes %2s, each value 4 cells; N/A renders as "N/A ")
+
+# Customize the text layout (verbs: icon, 5hr-value, 1w-value)
+agent-usage-check --provider opencode-go --text --icon "󴃓"
+agent-usage-check --provider opencode-go --text --text-format "%s|%s|%s"
 ```
 
 ## Acknowledgements
