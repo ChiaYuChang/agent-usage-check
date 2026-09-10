@@ -5,6 +5,7 @@ buildGoModule {
   src = ./.;
   vendorHash = null;
   subPackages = [ "cmd" ];
+  ldflags = [ "-X main.version=${version}" ];
   postInstall = ''
     mv $out/bin/cmd $out/bin/agent-usage-check
   '';

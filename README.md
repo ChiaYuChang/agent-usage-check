@@ -112,6 +112,9 @@ agent-usage-check --provider agy --json
 
 # Write status JSON atomically to a file
 agent-usage-check --provider agy --output ~/.cache/agent-usage-check/status.json --watch
+
+# Print version and exit
+agent-usage-check --version
 ```
 
 ## Acknowledgements

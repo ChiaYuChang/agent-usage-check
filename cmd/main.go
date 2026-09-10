@@ -20,6 +20,10 @@ import (
 	"agent-usage-check/internal/provider/opencodego"
 )
 
+// version is overridden at build time via:
+// go build -ldflags "-X main.version=1.0.0" ./cmd
+var version = "dev"
+
 func getProvider(cfg config.Config, httpClient *http.Client) provider.Provider {
 	switch strings.ToLower(cfg.Provider) {
 	case "agy", "antigravity":
@@ -60,7 +64,13 @@ func main() {
 	jsonFlag := flag.Bool("json", false, "output status in structured JSON format")
 	outputPathFlag := flag.String("output", "", "write status JSON to a file")
 	watchFlag := flag.Bool("watch", false, "continuously watch and refresh status at configured interval")
+	versionFlag := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
+
+	if *versionFlag {
+		fmt.Println("agent-usage-check", version)
+		return
+	}
 
 	visitedFlags := make(map[string]bool)
 	flag.Visit(func(f *flag.Flag) {
