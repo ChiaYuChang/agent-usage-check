@@ -16,20 +16,26 @@ Supports **OpenAI (ChatGPT / Codex)** backend APIs, **Antigravity (`agy`)** CLI,
 ## Architecture
 
 ```
-bin/
-  agent-usage-check
 cmd/
-  main.go
+  main.go         <- CLI flags, provider wiring, watch loop
 internal/
-  cache/
-  config/
-  formatter/
-    provider/
-      provider.go  <- interface & core models
-      openai/      <- OpenAI / Codex implementation
-      agy/         <- Antigravity (agy) implementation
-      opencodego/  <- OpenCode Go implementation
+  cache/          <- local cache with offline fallback
+  config/         <- YAML config + defaults
+  formatter/      <- status-bar JSON, plain text, --details report
+  provider/
+    provider.go   <- interface & core models
+    openai/       <- OpenAI / Codex implementation
+    agy/          <- Antigravity (agy) implementation
+    opencodego/   <- OpenCode Go implementation
 ```
+
+## Providers & Authentication
+
+| Provider | Flag | Key source |
+| -------- | ---- | ---------- |
+| `openai` (default) | `--provider openai` | `~/.codex/auth.json` (`--auth-path` overrides) |
+| `agy` | `--provider agy` | none — shells out to the `agy` binary (`--agy-path`, `--agy-group`) |
+| `opencode-go` | `--provider opencode-go` | `--opencode-api-key` → `OPENCODE_API_KEY` → opencode `auth.json` (`opencode-go`, then `opencode` entry; `--opencode-auth-path` overrides, `$OPENCODE_AUTH_JSON` respected) |
 
 ## Installation & Configuration
 
@@ -51,12 +57,13 @@ Add `agent-usage-check` to your `flake.nix`:
           programs.agent-usage-check = {
             enable = true;
             settings = {
-              provider = "agy"; # "openai" or "agy"
+              provider = "opencode-go"; # "openai", "agy" or "opencode-go"
               display = "remaining";
               interval = "15m";
               remaining_char = "■";
               used_char = "□";
-              icon = "󰫣";
+              icon = "󰫣"; # or per-provider map: { openai = "󰚩"; agy = "󰫣"; opencode-go = "󴃓"; }
+              text = false; # set true to emit plain fixed-width text instead of JSON
             };
           };
         }
@@ -74,8 +81,10 @@ display: remaining # remaining or used
 interval: 15m
 remaining_char: "■"
 used_char: "□"
-icon: "󰫣"
+icon: "󰫣" # or per-provider map: { openai: "󰚩", agy: "󰫣", opencode-go: "󴃓" }
 json: false # set true to output structured JSON
+text: false # set true to output plain fixed-width text instead of JSON
+text_format: "" # custom text layout, verbs: (icon, 5hr-value, 1w-value); default "%2s  5hr: %s 1w: %s"
 watch: false # set true to continuously stream status updates
 cache_path: "~/.config/agent-usage-check/cache.json"
 auth_path: "~/.codex/auth.json" # for openai provider
@@ -110,6 +119,10 @@ agent-usage-check --watch --provider agy
 agent-usage-check --provider agy --json
 # Output: {"name":"agy","icon":"󰫣","usage":{"1w":64,"5h":10},"alt":"available","groups":[{"1w":64,"5h":10,"name":"Gemini Models"},{"1w":66,"5h":100,"name":"Claude and GPT models"}]}
 
+# OpenCode Go JSON includes the monthly window
+agent-usage-check --provider opencode-go --json
+# Output: {"name":"opencode-go","icon":"","usage":{"1w":97,"5h":93,"monthly":99},"alt":"available","groups":[...]}
+
 # Write status JSON atomically to a file
 agent-usage-check --provider agy --output ~/.cache/agent-usage-check/status.json --watch
 
@@ -128,6 +141,13 @@ agent-usage-check --provider opencode-go --text --text-format "%s|%s|%s"
 ## Acknowledgements
 
 Inspired by [doggy8088/codex-reset-checker](https://github.com/doggy8088/codex-reset-checker).
+
+This repository is developed in collaboration with AI.
+
+## References
+
+- [doggy8088/codex-reset-checker](https://github.com/doggy8088/codex-reset-checker) — original Codex rate-limit reset checker that inspired this project
+- [OpenCode Zen docs](https://opencode.ai/docs/zen) — OpenCode Zen / Go model gateway overview
 
 ## License
 
