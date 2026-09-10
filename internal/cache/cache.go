@@ -12,12 +12,12 @@ import (
 )
 
 type CachedStatus struct {
-	UpdatedAt time.Time             `json:"updated_at"`
-	Provider  string                `json:"provider"`
-	Groups    []provider.Group      `json:"groups,omitempty"`
-	Primary   *provider.Window      `json:"primary,omitempty"`
-	Secondary *provider.Window      `json:"secondary,omitempty"`
-	Credits   []provider.Credit     `json:"credits,omitempty"`
+	UpdatedAt time.Time         `json:"updated_at"`
+	Provider  string            `json:"provider"`
+	Groups    []provider.Group  `json:"groups,omitempty"`
+	Primary   *provider.Window  `json:"primary,omitempty"`
+	Secondary *provider.Window  `json:"secondary,omitempty"`
+	Credits   []provider.Credit `json:"credits,omitempty"`
 }
 
 func ExpandPath(path string) string {

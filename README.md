@@ -151,4 +151,4 @@ This repository is developed in collaboration with AI.
 
 ## License
 
-MIT
+MIT — see [LICENSE](./LICENSE).

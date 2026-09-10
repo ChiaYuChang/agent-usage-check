@@ -1,0 +1,103 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version, for example v1.0.0
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}/${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+          - os: linux
+            arch: arm64
+          - os: darwin
+            arch: amd64
+          - os: darwin
+            arch: arm64
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Validate release version
+        run: |
+          set -eu
+          VERSION="${{ github.event.inputs.version || github.ref_name }}"
+          case "${VERSION}" in
+            v[0-9]*)
+              ;;
+            *)
+              echo "Invalid release version '${VERSION}': expected a version starting with v[0-9]." >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Build archive
+        env:
+          TARGET_OS: ${{ matrix.os }}
+          TARGET_ARCH: ${{ matrix.arch }}
+        run: |
+          set -eu
+          VERSION="${{ github.event.inputs.version || github.ref_name }}"
+          # Strip leading v so --version matches the Nix package version (e.g. 1.0.0).
+          VERSION="${VERSION#v}"
+          mkdir -p dist
+          archive_name="agent-usage-check-${TARGET_OS}-${TARGET_ARCH}.tar.gz"
+          GOOS="${TARGET_OS}" GOARCH="${TARGET_ARCH}" CGO_ENABLED=0 go build -ldflags "-X main.version=${VERSION}" -o dist/agent-usage-check ./cmd
+          tar -czf "dist/${archive_name}" -C dist agent-usage-check
+          rm -f dist/agent-usage-check
+
+      - name: Upload archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/agent-usage-check-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
+          if-no-files-found: error
+
+  publish:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ github.event.inputs.version || github.ref_name }}
+    steps:
+      - name: Download release archives
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          set -eu
+          cd dist
+          sha256sum agent-usage-check-*.tar.gz > checksums.txt
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION }}
+          files: |
+            dist/agent-usage-check-*.tar.gz
+            dist/checksums.txt
