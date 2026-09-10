@@ -1,7 +1,10 @@
 { buildGoModule }:
+let
+  version = "1.0.0";
+in
 buildGoModule {
   pname = "agent-usage-check";
-  version = "1.0.0";
+  inherit version;
   src = ./.;
   vendorHash = null;
   subPackages = [ "cmd" ];
