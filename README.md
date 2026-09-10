@@ -46,7 +46,7 @@ Add `agent-usage-check` to your `flake.nix`:
 ```nix
 {
   inputs = {
-    agent-usage-check.url = "github:cychang/agent-usage-check"; # Or path:~/Projects/agent-usage-check
+    agent-usage-check.url = "github:ChiaYuChang/agent-usage-check"; # Or path:~/Projects/agent-usage-check
   };
 
   outputs = { home-manager, agent-usage-check, ... }: {
