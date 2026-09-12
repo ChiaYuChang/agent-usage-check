@@ -71,9 +71,16 @@ func Report(st *provider.UsageStatus, now time.Time, options DisplayOptions) str
 		return "No usage data available.\n"
 	}
 
+	queryTime := now
+	if queryTime.IsZero() {
+		queryTime = time.Now()
+	}
+	timeStr := queryTime.Format("2006-01-02 15:04")
+
 	var output strings.Builder
 	if st.Provider == "opencode-go" {
-		output.WriteString("OpenCode Go Usage\n\n")
+		output.WriteString("OpenCode Go Usage\n")
+		fmt.Fprintf(&output, "Query time: %s\n\n", timeStr)
 		group := provider.Group{Primary: st.Primary, Secondary: st.Secondary, Windows: map[string]*provider.Window{}}
 		if len(st.Groups) > 0 {
 			group = st.Groups[0]
@@ -102,7 +109,8 @@ func Report(st *provider.UsageStatus, now time.Time, options DisplayOptions) str
 		return output.String()
 	}
 	if st.Provider == "agy" {
-		output.WriteString("Antigravity (AGY) Usage\n\n")
+		output.WriteString("Antigravity (AGY) Usage\n")
+		fmt.Fprintf(&output, "Query time: %s\n\n", timeStr)
 		for i, group := range st.Groups {
 			if i > 0 {
 				output.WriteString("\n----------------------------------------\n\n")
@@ -132,7 +140,8 @@ func Report(st *provider.UsageStatus, now time.Time, options DisplayOptions) str
 	}
 
 	// Default OpenAI / Codex format
-	output.WriteString("Codex usage\n\n")
+	output.WriteString("Codex usage\n")
+	fmt.Fprintf(&output, "Query time: %s\n\n", timeStr)
 	output.WriteString(WindowDetails("5h", st.Primary, options))
 	output.WriteString("\n\n")
 	output.WriteString(WindowDetails("1w", st.Secondary, options))

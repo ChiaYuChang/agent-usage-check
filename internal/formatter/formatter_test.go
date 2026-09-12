@@ -29,6 +29,7 @@ func TestReportShowsUsageAndCreditExpiry(t *testing.T) {
 	}
 	report := Report(st, now, DisplayOptions{RemainingChar: "#", UsedChar: "-"})
 	for _, expected := range []string{
+		"Query time: 2026-08-01 12:00",
 		"5h: 97% remaining, 3% used",
 		"[###########################-]",
 		"1w: N/A",
@@ -67,11 +68,49 @@ func TestReportAgy(t *testing.T) {
 	if !strings.Contains(report, "Antigravity (AGY) Usage") {
 		t.Errorf("report missing AGY header:\n%s", report)
 	}
+	if !strings.Contains(report, "Query time: 2026-08-01 12:00") {
+		t.Errorf("report missing query time:\n%s", report)
+	}
 	if !strings.Contains(report, "[Gemini Models]") {
 		t.Errorf("report missing group name:\n%s", report)
 	}
 	if !strings.Contains(report, "5h: 50% remaining, 50% used") {
 		t.Errorf("report missing 5h details:\n%s", report)
+	}
+}
+
+func TestReportOpencodeGo(t *testing.T) {
+	now := time.Date(2026, time.August, 1, 12, 0, 0, 0, time.UTC)
+	st := &provider.UsageStatus{
+		Provider:  "opencode-go",
+		Primary:   &provider.Window{RemainingPercent: intPtr(93)},
+		Secondary: &provider.Window{RemainingPercent: intPtr(87)},
+		Groups: []provider.Group{
+			{
+				Name: "OpenCode Go",
+				Windows: map[string]*provider.Window{
+					"rolling": {RemainingPercent: intPtr(93)},
+					"weekly":  {RemainingPercent: intPtr(87)},
+					"monthly": {RemainingPercent: intPtr(99)},
+				},
+			},
+		},
+	}
+	report := Report(st, now, DisplayOptions{RemainingChar: "#", UsedChar: "-"})
+	if !strings.Contains(report, "OpenCode Go Usage") {
+		t.Errorf("report missing OpenCode Go header:\n%s", report)
+	}
+	if !strings.Contains(report, "Query time: 2026-08-01 12:00") {
+		t.Errorf("report missing query time:\n%s", report)
+	}
+	if !strings.Contains(report, "5h: 93% remaining, 7% used") {
+		t.Errorf("report missing 5h details:\n%s", report)
+	}
+	if !strings.Contains(report, "1w: 87% remaining, 13% used") {
+		t.Errorf("report missing 1w details:\n%s", report)
+	}
+	if !strings.Contains(report, "monthly: 99% remaining, 1% used") {
+		t.Errorf("report missing monthly details:\n%s", report)
 	}
 }
 
