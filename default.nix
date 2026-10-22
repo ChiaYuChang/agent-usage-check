@@ -1,6 +1,6 @@
 { buildGoModule }:
 let
-  version = "1.0.0";
+  version = "1.0.1";
 in
 buildGoModule {
   pname = "agent-usage-check";

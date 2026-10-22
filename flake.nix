@@ -20,12 +20,14 @@
       {
         packages = rec {
           default = agent-usage-check;
-          agent-usage-check = pkgs.callPackage ./default.nix { };
+          agent-usage-check = pkgs.callPackage ./default.nix {
+            buildGoModule = pkgs.buildGo127Module;
+          };
         };
 
         devShells.default = pkgs.mkShell {
           buildInputs = [
-            pkgs.go
+            pkgs.go_1_27
             pkgs.gopls
           ];
         };
